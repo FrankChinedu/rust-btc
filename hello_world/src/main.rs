@@ -1,6 +1,13 @@
-mod string_manipute;
-use string_manipute::collect_args;
+fn main() {}
 
-fn main() {
-    println!("{}", collect_args());
+enum Message {
+    Quit,
+    Move(Move),
+    Write(String),
+    ChangeColor(i32, i32, i32),
+}
+
+struct Move {
+    x: i32,
+    y: i32,
 }
