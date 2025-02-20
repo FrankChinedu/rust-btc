@@ -3,14 +3,16 @@ use crate::error::{BtcError, Result};
 use crate::sha256::Hash;
 use crate::util::MerkleRoot;
 use crate::U256;
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Blockchain {
     pub utxos: HashMap<Hash, TransactionOutput>,
+    pub target: U256,
     pub blocks: Vec<Block>,
 }
 
@@ -219,6 +221,7 @@ impl Blockchain {
         Blockchain {
             utxos: HashMap::new(),
             blocks: vec![],
+            target: crate::MIN_TARGET,
         }
     }
     pub fn rebuild_utxos(&mut self) {
@@ -275,8 +278,43 @@ impl Blockchain {
             // Verify all transactions in the block
             block.verify_transactions(self.block_height(), &self.utxos)?;
         }
+        // Remove transactions from mempool that are now in the block
+        let block_transactions: HashSet<_> =
+            block.transactions.iter().map(|tx| tx.hash()).collect();
+        self.mempool
+            .retain(|(_, tx)| !block_transactions.contains(&tx.hash()));
 
         self.blocks.push(block);
+        self.try_adjust_target();
         Ok(())
+    }
+
+    pub fn try_adjust_target(&mut self) {
+        if self.blocks.is_empty() {
+            return;
+        }
+        if self.blocks.len() % crate::DIFFICULTY_UPDATE_INTERVAL as usize != 0 {
+            return;
+        }
+        let start_time = self.blocks
+            [self.blocks.len() - crate::DIFFICULTY_UPDATE_INTERVAL as usize]
+            .header
+            .timestamp;
+        let end_time = self.blocks.last().unwrap().header.timestamp;
+        let time_diff = end_time - start_time;
+        let time_diff_seconds = time_diff.num_seconds();
+        let target_seconds = crate::IDEAL_BLOCK_TIME * crate::DIFFICULTY_UPDATE_INTERVAL;
+        // multiply the current target by actual time divided by ideal time
+        let new_target = self.target * (time_diff_seconds as f64 / target_seconds as f64) as usize;
+        // clamp new_target to be within the range of
+        // 4 * self.target and self.target / 4
+        let new_target = if new_target < self.target / 4 {
+            self.target / 4
+        } else if new_target > self.target * 4 {
+            self.target * 4
+        } else {
+            new_target
+        };
+        self.target = new_target.min(crate::MIN_TARGET);
     }
 }
