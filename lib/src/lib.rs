@@ -8,6 +8,7 @@ construct_uint! {
     pub struct U256(4);
 }
 pub mod crypto;
+pub mod error;
 pub mod sha256;
 pub mod types;
 pub mod util;
@@ -23,14 +24,3 @@ impl From<[u8; 32]> for U256 {
         result
     }
 }
-
-// Implement From<[u8; 32]> for U256
-// impl From<[u8; 32]> for U256 {
-//     fn from(bytes: [u8; 32]) -> Self {
-//         let mut words = [0u64; 4];
-//         for i in 0..4 {
-//             words[i] = u64::from_be_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
-//         }
-//         U256(words)
-//     }
-// }

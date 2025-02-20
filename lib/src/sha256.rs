@@ -4,11 +4,19 @@ use crate::U256;
 use serde::{Deserialize, Serialize};
 use sha256::digest;
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 pub struct Hash(U256);
 
 #[allow(clippy::self_named_constructors)]
 impl Hash {
+    pub fn as_bytes(&self) -> [u8; 32] {
+        // let mut bytes: Vec<u8> = vec![0; 32];
+        // self.0.to_little_endian(&mut bytes);
+        // bytes.as_slice().try_into().unwrap()
+
+        self.0.to_little_endian()
+    }
+
     pub fn hash<T: serde::Serialize>(data: &T) -> Self {
         let mut serialized = vec![];
         if let Err(e) = ciborium::into_writer(data, &mut serialized) {
