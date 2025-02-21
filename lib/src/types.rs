@@ -263,7 +263,7 @@ impl Blockchain {
         self.blocks.len() as u64
     }
 
-    pub fn mempool(&self) -> &[Transaction] {
+    pub fn mempool(&self) -> &[(DateTime<Utc>, Transaction)] {
         // later, we will also need to keep track of time
         &self.mempool
     }
@@ -331,7 +331,7 @@ impl Blockchain {
         let block_transactions: HashSet<_> =
             block.transactions.iter().map(|tx| tx.hash()).collect();
         self.mempool
-            .retain(|tx| !block_transactions.contains(&tx.hash()));
+            .retain(|(_, tx)| !block_transactions.contains(&tx.hash()));
 
         self.blocks.push(block);
         self.try_adjust_target();
@@ -378,28 +378,15 @@ impl Blockchain {
 
         for input in &transaction.inputs {
             if !self.utxos.contains_key(&input.prev_transaction_output_hash) {
+                println!("UTXO not found");
+                dbg!(&self.utxos);
                 return Err(BtcError::InvalidTransaction);
             }
             if known_inputs.contains(&input.prev_transaction_output_hash) {
+                println!("duplicate input");
                 return Err(BtcError::InvalidTransaction);
             }
             known_inputs.insert(input.prev_transaction_output_hash);
-            // all inputs must be lower than all outputs
-            let all_inputs = transaction
-                .inputs
-                .iter()
-                .map(|input| {
-                    self.utxos
-                        .get(&input.prev_transaction_output_hash)
-                        .expect("BUG: impossible")
-                        .1
-                        .value
-                })
-                .sum::<u64>();
-            let all_outputs = transaction.outputs.iter().map(|output| output.value).sum();
-            if all_inputs < all_outputs {
-                return Err(BtcError::InvalidTransaction);
-            }
         }
 
         // check if any of the utxos have the bool mark set to true
@@ -422,7 +409,7 @@ impl Blockchain {
                                 .any(|output| output.hash() == input.prev_transaction_output_hash)
                         });
                 // If we have found one, unmark all of its UTXOs
-                if let Some((idx, referencing_transaction)) = referencing_transaction {
+                if let Some((idx, (_, referencing_transaction))) = referencing_transaction {
                     for input in &referencing_transaction.inputs {
                         // set all utxos from this transaction to false
                         self.utxos
@@ -443,9 +430,37 @@ impl Blockchain {
             }
         }
 
-        self.mempool.push(transaction);
+        // all inputs must be lower than all outputs
+        let all_inputs = transaction
+            .inputs
+            .iter()
+            .map(|input| {
+                self.utxos
+                    .get(&input.prev_transaction_output_hash)
+                    .expect("BUG: impossible")
+                    .1
+                    .value
+            })
+            .sum::<u64>();
+        let all_outputs = transaction.outputs.iter().map(|output| output.value).sum();
+        if all_inputs < all_outputs {
+            return Err(BtcError::InvalidTransaction);
+        }
 
-        self.mempool.sort_by_key(|transaction| {
+        // Mark the UTXOs as used
+        for input in &transaction.inputs {
+            self.utxos
+                .entry(input.prev_transaction_output_hash)
+                .and_modify(|(marked, _)| {
+                    *marked = true;
+                });
+        }
+
+        // push the transaction to the mempool
+        self.mempool.push((Utc::now(), transaction));
+
+        // sort by miner fee
+        self.mempool.sort_by_key(|(_, transaction)| {
             let all_inputs = transaction
                 .inputs
                 .iter()
