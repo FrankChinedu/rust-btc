@@ -9,17 +9,15 @@ pub trait Saveable
 where
     Self: Sized,
 {
-    fn load<I: Read>(&self, reader: I);
-    fn save<O: Write>(&self, writer: O);
+    fn load<I: Read>(&self, reader: I) -> IoResult<Self>;
+    fn save<O: Write>(&self, writer: O) -> IoResult<()>;
     fn save_to_file<P: AsRef<Path>>(&self, path: P) -> IoResult<()> {
         let file = File::create(&path)?;
-        self.save(file);
-        Ok(())
+        self.save(file)
     }
     fn load_from_file<P: AsRef<Path>>(self, path: P) -> IoResult<Self> {
         let file = File::open(&path)?;
-        self.load(file);
-        Ok(self)
+        self.load(file)
     }
 }
 
