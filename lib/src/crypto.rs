@@ -1,5 +1,5 @@
 use ecdsa::{
-    signature::{rand_core::OsRng, Signer, SignerMut, Verifier},
+    signature::{rand_core::OsRng, Signer, Verifier},
     Signature as ECDSASignature, SigningKey, VerifyingKey,
 };
 use k256::Secp256k1;
