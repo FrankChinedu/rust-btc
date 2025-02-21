@@ -203,6 +203,24 @@ impl BlockHeader {
     pub fn hash(&self) -> Hash {
         Hash::hash(self)
     }
+
+    pub fn mine(&mut self, steps: usize) -> bool {
+        if self.hash().matches_target(self.target) {
+            return true;
+        }
+        for _ in 0..steps {
+            if let Some(new_nonce) = self.nonce.checked_add(1) {
+                self.nonce = new_nonce
+            } else {
+                self.nonce = 0;
+                self.timestamp = Utc::now();
+            }
+            if self.hash().matches_target(self.target) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl Transaction {
@@ -305,16 +323,21 @@ impl Blockchain {
         let time_diff_seconds = time_diff.num_seconds();
         let target_seconds = crate::IDEAL_BLOCK_TIME * crate::DIFFICULTY_UPDATE_INTERVAL;
         // multiply the current target by actual time divided by ideal time
-        let new_target = self.target * (time_diff_seconds as f64 / target_seconds as f64) as usize;
+
+        let new_target = BigDecimal::parse_bytes(&self.target.to_string().as_bytes(), 10)
+            .expect("BUG: impossible")
+            * (BigDecimal::from(time_diff_seconds) / BigDecimal::from(target_seconds));
         // clamp new_target to be within the range of
         // 4 * self.target and self.target / 4
-        let new_target = if new_target < self.target / 4 {
-            self.target / 4
-        } else if new_target > self.target * 4 {
-            self.target * 4
-        } else {
-            new_target
-        };
+        let new_target_str = new_target
+            .to_string()
+            .split('.')
+            .next()
+            .expect("BUG: Expected a decimal point")
+            .to_owned();
+
+        let new_target = U256::from_str_radix(&new_target_str, 10).expect("BUG: impossible");
+
         self.target = new_target.min(crate::MIN_TARGET);
     }
 }
