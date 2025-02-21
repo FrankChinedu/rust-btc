@@ -41,7 +41,7 @@ impl Transaction {
 }
 
 impl Saveable for Transaction {
-    fn load<I: Read>(&self, reader: I) -> IoResult<Self> {
+    fn load<I: Read>(reader: I) -> IoResult<Self> {
         ciborium::de::from_reader(reader).map_err(|_| {
             IoError::new(
                 IoErrorKind::InvalidData,

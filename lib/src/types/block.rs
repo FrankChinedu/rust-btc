@@ -11,7 +11,7 @@ use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResu
 
 // save and load expecting CBOR from ciborium as format
 impl Saveable for Block {
-    fn load<I: Read>(&self, reader: I) -> IoResult<Self> {
+    fn load<I: Read>(reader: I) -> IoResult<Self> {
         ciborium::de::from_reader(reader)
             .map_err(|_| IoError::new(IoErrorKind::InvalidData, "Failed to deserialize Block"))
     }
