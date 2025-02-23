@@ -19,7 +19,7 @@ pub enum Message {
     /// public key
     FetchTemplate(PublicKey),
     /// The template
-    /// Template(Block),
+    Template(Block),
     /// Ask the node to validate a block template.
     /// This is to prevent the node from mining an invalid
     /// block (e.g. if one has been found in the meantime,
@@ -31,7 +31,7 @@ pub enum Message {
     SubmitTemplate(Block),
     /// Ask a node to report all the other nodes it knows
     /// about
-    /// DiscoverNodes,
+    DiscoverNodes,
     /// This is the response to DiscoverNodes
     NodeList(Vec<String>),
     /// Ask a node whats the highest block it knows about
